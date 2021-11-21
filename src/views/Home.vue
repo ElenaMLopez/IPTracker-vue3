@@ -7,11 +7,14 @@
         <h1 class="text-white text-center text-3xl pb-4">IP Address Tracker</h1>
         <div class="flex">
           <input 
+          v-model="queryIp"
           class="flex-1 py-3 px-2 rounded-tl-md rounded-bl-md focus:outline-none" 
           type="text"
           placeholder="Search for any IP addres or leave empty to get your IP info"
           >
-          <i class="cursor-pointer 
+          <i 
+            @click="getIpInfo"
+            class="cursor-pointer 
             bg-black 
             text-white px-4 
             rounded-tr-md 
@@ -22,7 +25,7 @@
           ></i>
         </div>
       </div>
-      <IPinfo />
+      <IPinfo v-if="ipInfo" :ipInfo="ipInfo"/>
     </div>
     <!-- Map -->
     <div id="mapid" class="h-full z-10"></div>
@@ -33,10 +36,11 @@
 // @ is an alias to /src
 import IPinfo from "../components/IPinfo.vue";
 import leaflet from "leaflet";
-import { onMounted } from "vue"
+import { onMounted, ref } from "vue";
+import axios from "axios";
 
 const TOKEN = process.env.VUE_APP_TOKEN;
-console.log({TOKEN})
+const GET_IP_URL = process.env.VUE_APP_GET_IP_URL;
 
 export default {
   name: 'Home',
@@ -45,6 +49,9 @@ export default {
   },
   setup () {
     let mymap;
+    const queryIp = ref('');
+    const ipInfo = ref(null);
+
     onMounted(() => {
       mymap = leaflet.map('mapid').setView([51.505, -0.09], 13);
 
@@ -54,11 +61,33 @@ export default {
         id: 'mapbox/streets-v11',
         tileSize: 512,
         zoomOffset: -1,
-        accessToken: 'your.mapbox.access.token'
+        accessToken: `${TOKEN}`
       }).addTo(mymap);
-
     });
-    leaflet
+    
+    const getIpInfo = async() => {
+      try {
+        const res = await axios.get(`${GET_IP_URL}${queryIp.value}`);
+        const result = res.data;
+        ipInfo.value = {
+          address: result.ip,
+          state: result.location.region,
+          timezone: result.location.timezone,
+          isp: result.isp,
+          lat: result.location.lat,
+          lng: result.location.lng
+        };
+        leaflet.marker([ipInfo.value.lat, ipInfo.value.lng]).addTo(mymap)
+        mymap.setView([ipInfo.value.lat, ipInfo.value.lng], 9);
+      } catch (error) {
+        console.log('Error from get ip address: ', error);
+      }
+    }
+    return { 
+      queryIp, 
+      ipInfo,
+      getIpInfo,
+    }
   }
 }
 </script>
